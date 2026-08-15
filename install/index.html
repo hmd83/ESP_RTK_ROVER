@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP_RTK_ROVER — Flash from your browser</title>
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+<style>
+  :root {
+    --bg:#f4f5f7; --panel:#fff; --panel-2:#fafbfc; --line:#dfe3e8;
+    --ink:#1b1f24; --ink-dim:#5c6670; --ink-faint:#8a939c;
+    --accent:#2f6fd0; --ok:#1a8a4a; --warn:#b06a00;
+    --shadow:0 1px 2px rgba(16,22,28,.06), 0 4px 16px rgba(16,22,28,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#0e1116; --panel:#171c23; --panel-2:#1d232b; --line:#2a323c;
+      --ink:#e6ebf1; --ink-dim:#9aa5b1; --ink-faint:#6e7883;
+      --accent:#5b9bf5; --ok:#3fbd72; --warn:#e0a33a;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; padding:24px 16px 48px; background:var(--bg); color:var(--ink);
+    font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  .wrap { max-width:760px; margin:0 auto; }
+  h1 { font-size:24px; margin:0 0 6px; letter-spacing:-.02em; }
+  h2 { font-size:16px; margin:0 0 10px; letter-spacing:-.01em; }
+  .sub { color:var(--ink-dim); margin:0 0 26px; }
+  a { color:var(--accent); }
+  .card {
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:20px; margin-bottom:16px; box-shadow:var(--shadow);
+  }
+  .card.primary { border-color:color-mix(in srgb, var(--accent) 40%, var(--line)); }
+  .tag {
+    display:inline-block; font-size:11px; font-weight:650; letter-spacing:.07em;
+    text-transform:uppercase; padding:3px 9px; border-radius:999px; margin-bottom:10px;
+    background:color-mix(in srgb, var(--ok) 15%, transparent); color:var(--ok);
+  }
+  .tag.alt { background:color-mix(in srgb, var(--warn) 15%, transparent); color:var(--warn); }
+  ul { margin:10px 0 0; padding-left:20px; color:var(--ink-dim); }
+  li { margin:4px 0; }
+  code, pre {
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-size:13px;
+  }
+  pre {
+    background:var(--panel-2); border:1px solid var(--line); border-radius:8px;
+    padding:12px 14px; overflow-x:auto; margin:12px 0 0;
+  }
+  esp-web-install-button { display:block; margin:16px 0 4px; }
+  .btn-note { color:var(--ink-faint); font-size:13px; }
+  .steps { counter-reset:s; list-style:none; padding:0; margin:14px 0 0; }
+  .steps li {
+    counter-increment:s; position:relative; padding-left:30px; margin:8px 0; color:var(--ink);
+  }
+  .steps li::before {
+    content:counter(s); position:absolute; left:0; top:1px;
+    width:20px; height:20px; border-radius:50%; background:var(--panel-2);
+    border:1px solid var(--line); color:var(--ink-dim);
+    font-size:11px; font-weight:650; display:grid; place-items:center;
+  }
+  footer { color:var(--ink-faint); font-size:13px; text-align:center; padding-top:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>ESP_RTK_ROVER — flash from your browser</h1>
+  <p class="sub">
+    ECOVACS GOAT base station + ComNav K803 Lite → centimetre-accurate Bluetooth GNSS rover.
+    <a href="https://github.com/hmd83/ESP_RTK_ROVER">Project on GitHub</a> ·
+    <a href="../web/rtk-monitor.html">Live dashboard</a>
+  </p>
+
+  <div class="card primary">
+    <span class="tag">Recommended · 1-click</span>
+    <h2>Seeed Studio XIAO ESP32C6 — BLE</h2>
+    <p style="margin:0;color:var(--ink-dim)">
+      Prebuilt firmware v1.0.0. Advertises as <code>ESP32-RTK-XXXX</code> over BLE (Nordic UART),
+      configures the K803 as an RTK rover on every boot. Works with SW Maps, QField, Mergin Maps
+      and Mapit GIS on Android <em>and</em> iOS.
+    </p>
+
+    <esp-web-install-button manifest="manifest-xiao-c6-ble.json">
+      <span slot="unsupported">
+        ⚠️ Your browser cannot flash. Use <b>Chrome</b> or <b>Edge</b> on desktop —
+        Safari and Firefox have no Web Serial.
+      </span>
+      <span slot="not-allowed">
+        ⚠️ This page must be served over HTTPS to flash.
+      </span>
+    </esp-web-install-button>
+
+    <ol class="steps">
+      <li><b>Disconnect the GNSS harness</b> — flash the board on its own.</li>
+      <li>Plug the XIAO into USB-C with a <b>data</b> cable.</li>
+      <li>Click <b>Connect</b> and pick the serial port.</li>
+      <li>If no port appears: hold <b>BOOT (B)</b>, tap <b>RESET (R)</b>, release <b>BOOT</b>, retry.</li>
+      <li>Install, then open <b>Logs &amp; Console</b> to watch the first boot.</li>
+    </ol>
+    <p class="btn-note" style="margin-top:14px">
+      Chrome or Edge on desktop. The XIAO uses native USB — no driver needed.
+    </p>
+  </div>
+
+  <div class="card">
+    <span class="tag alt">Build from source</span>
+    <h2>ESP32 DevKitC — Bluetooth Classic SPP or BLE</h2>
+    <p style="margin:0;color:var(--ink-dim)">
+      No prebuilt image on purpose. "ESP32 DevKitC" covers a lot of different boards, and a
+      one-size image would brick or silently misbehave on some of them:
+    </p>
+    <ul>
+      <li><b>WROOM vs WROVER</b> — GPIO16/17 carry the GNSS UART on WROOM, but are consumed by
+        PSRAM on WROVER. Different pins, so a different build.</li>
+      <li><b>SPP vs BLE</b> — two different transports, two different firmwares.</li>
+      <li><b>Partition layout</b> — the SPP build needs <code>huge_app.csv</code>; a mismatch
+        against whatever is already on your flash boot-loops.</li>
+      <li><b>Flash size and USB bridge</b> vary between clones.</li>
+    </ul>
+    <p style="margin:14px 0 0;color:var(--ink-dim)">
+      Building takes two commands and picks the right settings for your board:
+    </p>
+<pre>git clone https://github.com/hmd83/ESP_RTK_ROVER.git
+cd ESP_RTK_ROVER
+pio run -e esp32dev_spp -t upload    # Bluetooth Classic SPP
+pio run -e esp32dev_ble -t upload    # BLE</pre>
+    <p style="margin:12px 0 0">
+      Full instructions: <a href="https://github.com/hmd83/ESP_RTK_ROVER/blob/main/FLASHING.md">FLASHING.md</a>
+    </p>
+  </div>
+
+  <footer>
+    MIT · Hussein Daj &amp; Claude (Anthropic) ·
+    <a href="https://github.com/hmd83/ESP_RTK_ROVER">hmd83/ESP_RTK_ROVER</a>
+  </footer>
+
+</div>
+</body>
+</html>

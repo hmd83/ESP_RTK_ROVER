@@ -4,9 +4,15 @@ Three routes, easiest first:
 
 | Route | Needs | For |
 |---|---|---|
-| **[Web flashing](#1-web-flashing-1-click)** | Chrome or Edge, a USB cable | Everyone. No toolchain, no IDE, no drivers to hunt down |
-| **[PlatformIO](#2-platformio-from-source)** | VS Code + PlatformIO | Anyone changing `config.h` or the K803 command sequence |
+| **[Web flashing](#1-web-flashing-1-click)** | Chrome or Edge, a USB cable | **XIAO ESP32C6 only.** No toolchain, no IDE, no drivers |
+| **[PlatformIO](#2-platformio-from-source)** | VS Code + PlatformIO | **Every ESP32 DevKitC build**, and anyone changing `config.h` or the K803 commands |
 | **[esptool](#3-esptool-manual)** | Python + esptool | CI, scripted installs, awkward setups |
+
+> **Why is there no prebuilt image for the ESP32 DevKitC?** Because "DevKitC" is not one
+> board. WROOM and WROVER need different GNSS pins (PSRAM occupies GPIO16/17 on WROVER), SPP
+> and BLE are different firmwares, and the SPP build needs a different partition table. A
+> single published image would boot-loop or silently misbehave on a good fraction of them.
+> Building from source picks the right one and takes two commands.
 
 - [Which build do I flash?](#which-build-do-i-flash)
 - [1. Web flashing (1-click)](#1-web-flashing-1-click)
@@ -34,9 +40,14 @@ MFi certification, so a Classic build is invisible to it no matter what you do.
 
 ## 1. Web flashing (1-click)
 
+### ▶ [https://hmd83.github.io/ESP_RTK_ROVER/install/](https://hmd83.github.io/ESP_RTK_ROVER/install/)
+
+**Seeed Studio XIAO ESP32C6 only.** One board, one known configuration, one image — which is
+exactly why it is safe to publish. DevKitC users: [build from source](#2-platformio-from-source).
+
 [ESP Web Tools](https://esphome.github.io/esp-web-tools/) drives the ESP32 ROM bootloader
-straight from the browser over Web Serial. No Arduino IDE, no PlatformIO, no CH340/CP2102
-driver chase on most systems.
+straight from the browser over Web Serial. No Arduino IDE, no PlatformIO, and the XIAO's
+native USB needs no driver at all.
 
 ### Requirements
 
@@ -50,16 +61,10 @@ driver chase on most systems.
 
 ### Steps
 
-1. Open the installer page:
-   **`https://hmd83.github.io/ESP_RTK_ROVER/install/`**
-   ⚠️ *Not live yet — no release binaries have been published. Until then, use
-   [PlatformIO](#2-platformio-from-source). Maintainers: see
-   [Publishing your own installer page](#publishing-your-own-installer-page-maintainers).*
-2. Plug the board into USB. **Disconnect the GNSS harness first** — flash it standalone.
-3. Pick your build and click **Connect**.
-4. Choose the serial port in the browser's dialog:
-   - XIAO ESP32-C6 → `USB JTAG/serial debug unit` or similar
-   - ESP32 DevKitC → `Silicon Labs CP210x` / `USB-SERIAL CH340`
+1. Open **[the installer](https://hmd83.github.io/ESP_RTK_ROVER/install/)**.
+2. Plug the XIAO into USB-C. **Disconnect the GNSS harness first** — flash it standalone.
+3. Click **Connect**.
+4. Choose the serial port in the browser's dialog — `USB JTAG/serial debug unit` or similar.
 5. Click **Install**, confirm the erase prompt, and wait ~1–2 minutes.
 6. When it finishes, click **Logs & Console** to watch the first boot at 115200.
 
@@ -242,44 +247,39 @@ Erase first. Every time you change transport family.
 
 ## Publishing your own installer page (maintainers)
 
-ESP Web Tools wants one **merged** binary per build plus a small JSON manifest, served over
-HTTPS. GitHub Pages is free and sufficient.
+ESP Web Tools wants one **merged** binary plus a small JSON manifest, served over HTTPS.
+This repo publishes exactly one: the XIAO ESP32C6 BLE build. Everything lives in `install/`.
 
-### 1. Build every environment
+### 1. Build
 
 ```powershell
 pio run -e xiao_esp32c6_ble
-pio run -e esp32dev_spp
-pio run -e esp32dev_ble
 ```
 
-### 2. Merge each into a single flashable image
+### 2. Take the merged image
+
+PlatformIO already produces one — no `esptool merge_bin` step needed:
 
 ```powershell
-# XIAO ESP32-C6 — bootloader at 0x0
-esptool --chip esp32c6 merge_bin -o install/firmware/xiao-c6-ble.bin `
-  --flash_mode dio --flash_freq 80m --flash_size 4MB `
-  0x0     .pio/build/xiao_esp32c6_ble/bootloader.bin `
-  0x8000  .pio/build/xiao_esp32c6_ble/partitions.bin `
-  0x10000 .pio/build/xiao_esp32c6_ble/firmware.bin
-
-# ESP32 DevKitC — bootloader at 0x1000
-esptool --chip esp32 merge_bin -o install/firmware/esp32-spp.bin `
-  --flash_mode dio --flash_freq 40m --flash_size 4MB `
-  0x1000  .pio/build/esp32dev_spp/bootloader.bin `
-  0x8000  .pio/build/esp32dev_spp/partitions.bin `
-  0x10000 .pio/build/esp32dev_spp/firmware.bin
+copy .pio\build\xiao_esp32c6_ble\firmware.factory.bin install\firmware\xiao-c6-ble.bin
 ```
 
-A merged image starts at offset `0`, which is why the manifest below has a single part.
+`firmware.factory.bin` is bootloader + partition table + application pre-merged, flashable at
+offset `0`. Verify it before publishing: **byte 0 must be `0xE9`** on the C6, because its
+bootloader lives at `0x0`. (On a classic ESP32 the first `0xE9` sits at `0x1000` instead —
+if you ever add such a build, do not confuse the two.)
 
-### 3. Write a manifest per build
+```powershell
+'0x{0:X2}' -f [System.IO.File]::ReadAllBytes('install\firmware\xiao-c6-ble.bin')[0]
+```
+
+### 3. Manifest
 
 `install/manifest-xiao-c6-ble.json`:
 
 ```json
 {
-  "name": "ESP_RTK_ROVER · XIAO ESP32-C6 (BLE)",
+  "name": "ESP_RTK_ROVER · Seeed Studio XIAO ESP32C6 (BLE)",
   "version": "1.0.0",
   "new_install_prompt_erase": true,
   "builds": [
@@ -291,24 +291,8 @@ A merged image starts at offset `0`, which is why the manifest below has a singl
 }
 ```
 
-`install/manifest-esp32-spp.json`:
-
-```json
-{
-  "name": "ESP_RTK_ROVER · ESP32 DevKitC (Bluetooth Classic SPP)",
-  "version": "1.0.0",
-  "new_install_prompt_erase": true,
-  "builds": [
-    {
-      "chipFamily": "ESP32",
-      "parts": [{ "path": "firmware/esp32-spp.bin", "offset": 0 }]
-    }
-  ]
-}
-```
-
-`new_install_prompt_erase: true` matters here — it offers a full erase on first install,
-which is exactly what the partition-layout difference above requires.
+`new_install_prompt_erase: true` offers a full erase on first install — worth keeping, since
+it clears whatever partition layout the board arrived with.
 
 > If your esp-web-tools version rejects `"ESP32-C6"`, upgrade it. C6 support arrived with
 > newer esptool-js releases.
@@ -321,14 +305,18 @@ which is exactly what the partition-layout difference above requires.
 <script type="module"
         src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
 
-<h2>XIAO ESP32-C6 — BLE (recommended)</h2>
-<esp-web-install-button manifest="manifest-xiao-c6-ble.json"></esp-web-install-button>
-
-<h2>ESP32 DevKitC — Bluetooth Classic SPP</h2>
-<esp-web-install-button manifest="manifest-esp32-spp.json"></esp-web-install-button>
+<esp-web-install-button manifest="manifest-xiao-c6-ble.json">
+  <span slot="unsupported">Use Chrome or Edge on desktop.</span>
+  <span slot="not-allowed">This page must be served over HTTPS.</span>
+</esp-web-install-button>
 ```
 
-Add a `<p slot="unsupported">` inside each button for a friendly message on Safari/Firefox.
+The `unsupported` and `not-allowed` slots are worth filling in — without them, Safari and
+Firefox users see a button that simply does nothing.
+
+> **Publish one board, not five.** The image is keyed to a specific chip *and* a specific
+> pinout. The XIAO ESP32C6 is a single, known, unambiguous board, so a prebuilt image is
+> safe. "ESP32 DevKitC" is a category, not a board — publish source instructions for those.
 
 ### 5. Publish
 

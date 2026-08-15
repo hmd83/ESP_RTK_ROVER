@@ -16,10 +16,11 @@
 </p>
 
 <p align="center">
+  <b><a href="https://hmd83.github.io/ESP_RTK_ROVER/install/">⚡ Flash in your browser</a></b> ·
   <b><a href="https://hmd83.github.io/ESP_RTK_ROVER/web/rtk-monitor.html">🛰️ Live Dashboard</a></b> ·
   <a href="HARDWARE.md">🔧 Hardware &amp; Wiring</a> ·
   <a href="COMMANDS.md">📡 K803 Commands</a> ·
-  <a href="FLASHING.md">⚡ Flashing</a>
+  <a href="FLASHING.md">📖 Flashing Guide</a>
 </p>
 
 ---
@@ -221,14 +222,16 @@ TX and RX **cross over**. If you get no data, swap those two first.
 
 ### 3. Flash it
 
-The fastest path is **1-click web flashing** from Chrome or Edge — no toolchain, no Arduino
-IDE, no drivers:
+On a **XIAO ESP32C6** it is 1-click from Chrome or Edge — no toolchain, no Arduino IDE, no
+drivers:
 
 <p align="center">
-  <a href="FLASHING.md"><b>→ Flash from your browser (FLASHING.md)</b></a>
+  <a href="https://hmd83.github.io/ESP_RTK_ROVER/install/"><b>⚡ → Flash from your browser</b></a>
 </p>
 
-Or build from source with PlatformIO:
+**ESP32 DevKitC users build from source** — deliberately. WROOM and WROVER need different
+GNSS pins, SPP and BLE are different firmwares, and the SPP build needs its own partition
+table; one published image would boot-loop on a good share of those boards.
 
 ```powershell
 pio run -e xiao_esp32c6_ble -t upload   # XIAO ESP32-C6, BLE

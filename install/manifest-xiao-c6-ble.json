@@ -1,0 +1,11 @@
+{
+  "name": "ESP_RTK_ROVER · Seeed Studio XIAO ESP32C6 (BLE)",
+  "version": "1.0.0",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-C6",
+      "parts": [{ "path": "firmware/xiao-c6-ble.bin", "offset": 0 }]
+    }
+  ]
+}
