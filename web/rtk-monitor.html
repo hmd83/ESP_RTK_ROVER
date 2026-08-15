@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP32-RTK Monitor</title>
+<style>
+  :root {
+    --bg:        #f4f5f7;
+    --panel:     #ffffff;
+    --panel-2:   #fafbfc;
+    --line:      #dfe3e8;
+    --ink:       #1b1f24;
+    --ink-dim:   #5c6670;
+    --ink-faint: #8a939c;
+    --accent:    #2f6fd0;
+    --ok:        #1a8a4a;
+    --warn:      #b06a00;
+    --bad:       #c0392b;
+    --log-bg:    #12161b;
+    --log-ink:   #b8c4cf;
+    --shadow:    0 1px 2px rgba(16,22,28,.06), 0 4px 16px rgba(16,22,28,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:        #0e1116;
+      --panel:     #171c23;
+      --panel-2:   #1d232b;
+      --line:      #2a323c;
+      --ink:       #e6ebf1;
+      --ink-dim:   #9aa5b1;
+      --ink-faint: #6e7883;
+      --accent:    #5b9bf5;
+      --ok:        #3fbd72;
+      --warn:      #e0a33a;
+      --bad:       #f0705f;
+      --log-bg:    #0a0d11;
+      --log-ink:   #a9b6c3;
+      --shadow:    0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; }
+
+  /* ---- header ---- */
+  header {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  h1 { font-size: 17px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
+  h1 small { font-weight: 400; color: var(--ink-faint); margin-left: 8px; font-size: 13px; }
+  .spacer { flex: 1 1 auto; }
+
+  button {
+    font: inherit; font-weight: 550;
+    padding: 8px 16px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: var(--panel-2); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); border-color: transparent; color: #fff; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--accent); }
+  button.sm { padding: 4px 10px; font-size: 12px; font-weight: 500; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 12px; border-radius: 999px;
+    background: var(--panel); border: 1px solid var(--line);
+    font-size: 12.5px; color: var(--ink-dim);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); flex: none; }
+  .dot.live { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent); }
+  .dot.err  { background: var(--bad); }
+
+  /* ---- fix banner ---- */
+  .fix {
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+    padding: 14px 18px; border-radius: 12px; margin-bottom: 14px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-left: 5px solid var(--q, var(--ink-faint));
+    box-shadow: var(--shadow);
+  }
+  .fix .q { font-size: 22px; font-weight: 680; color: var(--q, var(--ink)); letter-spacing: -.015em; }
+  .fix .meta { color: var(--ink-dim); font-size: 13px; }
+  .fix .meta b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* ---- cards ---- */
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px; margin-bottom: 14px;
+    box-shadow: var(--shadow);
+  }
+  .card > h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--ink-faint); margin: 0 0 12px; font-weight: 650;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .card > h2 .spacer { min-width: 8px; }
+
+  .coords { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .coord .label { font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .07em; }
+  .coord .val {
+    font: 600 26px/1.2 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+  }
+  .coord .dms { font-size: 12px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+  .coord-actions { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+  a.maps { font-size: 12px; color: var(--accent); text-decoration: none; align-self: center; }
+  a.maps:hover { text-decoration: underline; }
+
+  .grid {
+    display: grid; gap: 1px; background: var(--line);
+    border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  }
+  .cell { background: var(--panel-2); padding: 10px 12px; }
+  .cell .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); }
+  .cell .v {
+    font: 500 17px/1.35 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; margin-top: 2px;
+  }
+  .cell .v u { text-decoration: none; font-size: 11px; color: var(--ink-faint); margin-left: 3px; }
+  .v.ok { color: var(--ok); } .v.warn { color: var(--warn); } .v.bad { color: var(--bad); }
+
+  /* ---- log ---- */
+  pre#log {
+    margin: 0; height: 260px; overflow: auto;
+    background: var(--log-bg); color: var(--log-ink);
+    border-radius: 8px; padding: 10px 12px;
+    font: 12px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    white-space: pre; tab-size: 2;
+  }
+  pre#log .bad { color: var(--bad); }
+
+  .note {
+    padding: 12px 14px; border-radius: 10px; margin-bottom: 14px;
+    background: color-mix(in srgb, var(--warn) 12%, var(--panel));
+    border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--line));
+    font-size: 13px;
+  }
+  .note code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+  .foot { color: var(--ink-faint); font-size: 12px; text-align: center; padding: 4px 0 12px; }
+  .foot b { color: var(--ink-dim); font-weight: 500; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>ESP32-RTK Monitor <small>NMEA over BLE</small></h1>
+    <div class="spacer"></div>
+    <span class="pill"><span class="dot" id="dot"></span><span id="status">Not connected</span></span>
+    <button class="primary" id="btnConnect">Connect</button>
+  </header>
+
+  <div class="note" id="unsupported" hidden>
+    This browser has no Web Bluetooth. Use <b>Chrome</b> or <b>Edge</b> on desktop or Android
+    (Safari and Firefox do not implement it), and open this file from disk or over
+    <code>https://</code> — Web Bluetooth needs a secure context.
+  </div>
+
+  <div class="fix" id="fixBanner">
+    <span class="q" id="fixQuality">NO DATA</span>
+    <span class="meta">
+      <b id="fixSats">–</b> sats &nbsp;·&nbsp;
+      HDOP <b id="fixHdop">–</b> &nbsp;·&nbsp;
+      corr age <b id="fixAge">–</b> &nbsp;·&nbsp;
+      base <b id="fixBase">–</b>
+    </span>
+    <span class="spacer"></span>
+    <span class="meta" id="fixTime">–</span>
+  </div>
+
+  <div class="card">
+    <h2>Position</h2>
+    <div class="coords">
+      <div class="coord">
+        <div class="label">Latitude</div>
+        <div class="val" id="lat">–</div>
+        <div class="dms" id="latDms">&nbsp;</div>
+      </div>
+      <div class="coord">
+        <div class="label">Longitude</div>
+        <div class="val" id="lon">–</div>
+        <div class="dms" id="lonDms">&nbsp;</div>
+      </div>
+      <div class="coord">
+        <div class="label">&nbsp;</div>
+        <div class="coord-actions">
+          <button class="sm" id="btnCopy">Copy</button>
+          <a class="maps" id="mapLink" href="#" target="_blank" rel="noopener">Open in Maps ↗</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>GGA</h2>
+    <div class="grid">
+      <div class="cell"><div class="k">Altitude MSL</div><div class="v" id="alt">–</div></div>
+      <div class="cell"><div class="k">Geoid sep.</div><div class="v" id="geoid">–</div></div>
+      <div class="cell"><div class="k">Ellipsoidal ht</div><div class="v" id="hae">–</div></div>
+      <div class="cell"><div class="k">Sats used</div><div class="v" id="sats">–</div></div>
+      <div class="cell"><div class="k">HDOP</div><div class="v" id="hdop">–</div></div>
+      <div class="cell"><div class="k">Corr. age</div><div class="v" id="age">–</div></div>
+      <div class="cell"><div class="k">Base ID</div><div class="v" id="base">–</div></div>
+      <div class="cell"><div class="k">UTC</div><div class="v" id="utc">–</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Quality &amp; motion <span class="spacer"></span>
+      <span style="font-weight:400;text-transform:none;letter-spacing:0">GST · GSA · RMC · VTG</span>
+    </h2>
+    <div class="grid">
+      <div class="cell"><div class="k">σ Latitude</div><div class="v" id="sdLat">–</div></div>
+      <div class="cell"><div class="k">σ Longitude</div><div class="v" id="sdLon">–</div></div>
+      <div class="cell"><div class="k">σ Altitude</div><div class="v" id="sdAlt">–</div></div>
+      <div class="cell"><div class="k">PDOP</div><div class="v" id="pdop">–</div></div>
+      <div class="cell"><div class="k">VDOP</div><div class="v" id="vdop">–</div></div>
+      <div class="cell"><div class="k">Speed</div><div class="v" id="speed">–</div></div>
+      <div class="cell"><div class="k">Course</div><div class="v" id="course">–</div></div>
+      <div class="cell"><div class="k">Date</div><div class="v" id="date">–</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Raw NMEA <span class="spacer"></span>
+      <button class="sm" id="btnPause">Pause</button>
+      <button class="sm" id="btnClear">Clear</button>
+    </h2>
+    <pre id="log">Waiting for a connection…</pre>
+  </div>
+
+  <div class="foot">
+    <b id="statBytes">0</b> B &nbsp;·&nbsp;
+    <b id="statSent">0</b> sentences &nbsp;·&nbsp;
+    <b id="statRate">0</b> B/s &nbsp;·&nbsp;
+    <b id="statBad">0</b> bad checksum &nbsp;·&nbsp;
+    last fix <b id="statAge">–</b>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+// Nordic UART Service - matches NUS_*_UUID in src/config.h.
+const NUS_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const NUS_TX      = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';  // receiver -> us, notify
+
+const $ = id => document.getElementById(id);
+
+// --------------------------------------------------------------------------
+// State
+// --------------------------------------------------------------------------
+const S = {
+  gga: null, gst: null, gsa: null, rmc: null, vtg: null, zda: null,
+  bytes: 0, sentences: 0, bad: 0,
+  rateBytes: 0, rate: 0, lastFixMs: 0,
+  lines: [], paused: false, dirty: true,
+};
+
+let device = null, txChar = null;
+let partial = '';
+const decoder = new TextDecoder();
+
+// GGA field 6. Anything not listed is shown as the raw digit.
+const QUALITY = {
+  '0': ['NO FIX',      'var(--bad)'],
+  '1': ['SINGLE',      'var(--ink-dim)'],
+  '2': ['DGPS / SBAS', 'var(--accent)'],
+  '3': ['PPS',         'var(--accent)'],
+  '4': ['RTK FIXED',   'var(--ok)'],
+  '5': ['RTK FLOAT',   'var(--warn)'],
+  '6': ['DEAD RECK.',  'var(--warn)'],
+  '7': ['MANUAL',      'var(--ink-dim)'],
+  '8': ['SIMULATION',  'var(--ink-dim)'],
+  '9': ['WAAS',        'var(--accent)'],
+};
+
+// --------------------------------------------------------------------------
+// NMEA
+// --------------------------------------------------------------------------
+// XOR of everything between '$' and '*'. Returns null when the line carries no
+// checksum at all, so those are passed through rather than counted as errors.
+function checksumOk(line) {
+  const star = line.lastIndexOf('*');
+  if (star < 0 || star + 3 > line.length) return null;
+  let sum = 0;
+  for (let i = 1; i < star; i++) sum ^= line.charCodeAt(i);
+  return sum === parseInt(line.slice(star + 1, star + 3), 16);
+}
+
+// ddmm.mmmmm + hemisphere -> signed degrees. The degree field is 2 digits for
+// latitude and 3 for longitude, so split on the minutes instead of a fixed
+// width: everything from two places left of the dot is minutes.
+function toDegrees(raw, hemi) {
+  if (!raw || !hemi) return null;
+  const dot = raw.indexOf('.');
+  const cut = (dot < 0 ? raw.length : dot) - 2;
+  if (cut < 1) return null;
+  const deg = parseInt(raw.slice(0, cut), 10);
+  const min = parseFloat(raw.slice(cut));
+  if (!isFinite(deg) || !isFinite(min)) return null;
+  const val = deg + min / 60;
+  return (hemi === 'S' || hemi === 'W') ? -val : val;
+}
+
+function toDms(v, axis) {
+  if (v === null) return '';
+  const hemi = axis === 'lat' ? (v < 0 ? 'S' : 'N') : (v < 0 ? 'W' : 'E');
+  const a = Math.abs(v);
+  const d = Math.floor(a);
+  const m = Math.floor((a - d) * 60);
+  const s = ((a - d) * 60 - m) * 60;
+  return `${d}° ${String(m).padStart(2, '0')}′ ${s.toFixed(3).padStart(6, '0')}″ ${hemi}`;
+}
+
+// hhmmss.ss -> hh:mm:ss.ss
+function toClock(t) {
+  if (!t || t.length < 6) return null;
+  return `${t.slice(0, 2)}:${t.slice(2, 4)}:${t.slice(4)}`;
+}
+
+function handleSentence(line) {
+  const ok = checksumOk(line);
+  if (ok === false) { S.bad++; pushLog(line, true); return; }
+
+  pushLog(line, false);
+  S.sentences++;
+
+  const star = line.lastIndexOf('*');
+  const f = (star < 0 ? line : line.slice(0, star)).split(',');
+  const type = f[0].slice(-3);          // talker-agnostic: GP/GN/BD/GL/GA + GGA
+
+  switch (type) {
+    case 'GGA':
+      if (f.length < 15) break;
+      S.gga = {
+        time: f[1], lat: toDegrees(f[2], f[3]), lon: toDegrees(f[4], f[5]),
+        quality: f[6], sats: f[7], hdop: f[8],
+        alt: parseFloat(f[9]), geoid: parseFloat(f[11]),
+        age: f[13], base: f[14],
+      };
+      S.lastFixMs = performance.now();
+      break;
+
+    case 'GST':
+      if (f.length < 9) break;
+      S.gst = { sdLat: parseFloat(f[6]), sdLon: parseFloat(f[7]), sdAlt: parseFloat(f[8]) };
+      break;
+
+    case 'GSA':
+      if (f.length < 18) break;
+      S.gsa = { pdop: f[15], vdop: f[17] };
+      break;
+
+    case 'RMC':
+      if (f.length < 10) break;
+      S.rmc = { knots: parseFloat(f[7]), course: parseFloat(f[8]), date: f[9] };
+      break;
+
+    case 'VTG':
+      if (f.length < 8) break;
+      S.vtg = { course: parseFloat(f[1]), kph: parseFloat(f[7]) };
+      break;
+
+    case 'ZDA':
+      if (f.length < 5) break;
+      S.zda = { day: f[2], month: f[3], year: f[4] };
+      break;
+  }
+  S.dirty = true;
+}
+
+// --------------------------------------------------------------------------
+// Rendering - the receiver logs at 1 Hz but a burst arrives as many small
+// notifications, so paint on a timer instead of per sentence.
+// --------------------------------------------------------------------------
+function set(id, text, cls) {
+  const el = $(id);
+  el.textContent = text;
+  if (cls !== undefined) el.className = 'v' + (cls ? ' ' + cls : '');
+}
+const n = (v, d, unit) =>
+  (v === null || v === undefined || !isFinite(v)) ? '–'
+    : v.toFixed(d) + (unit ? `<u>${unit}</u>` : '');
+const html = (id, s) => { $(id).innerHTML = s; };
+
+function render() {
+  if (!S.dirty) { renderStats(); return; }
+  S.dirty = false;
+
+  const g = S.gga;
+  if (g) {
+    const [label, color] = QUALITY[g.quality] || [`QUALITY ${g.quality || '?'}`, 'var(--ink-dim)'];
+    $('fixQuality').textContent = label;
+    $('fixBanner').style.setProperty('--q', color);
+
+    $('fixSats').textContent = g.sats || '–';
+    $('fixHdop').textContent = g.hdop || '–';
+    $('fixBase').textContent = g.base || '–';
+    $('fixTime').textContent = toClock(g.time) ? toClock(g.time) + ' UTC' : '–';
+
+    const age = parseFloat(g.age);
+    $('fixAge').textContent = isFinite(age) ? age.toFixed(1) + ' s' : '–';
+
+    if (g.lat !== null && g.lon !== null) {
+      $('lat').textContent = g.lat.toFixed(8);
+      $('lon').textContent = g.lon.toFixed(8);
+      $('latDms').textContent = toDms(g.lat, 'lat');
+      $('lonDms').textContent = toDms(g.lon, 'lon');
+      $('mapLink').href = `https://www.google.com/maps?q=${g.lat.toFixed(8)},${g.lon.toFixed(8)}`;
+    }
+
+    html('alt',   n(g.alt, 4, 'm'));
+    html('geoid', n(g.geoid, 3, 'm'));
+    html('hae',   n(g.alt + g.geoid, 4, 'm'));
+    set('sats',   g.sats || '–');
+    set('hdop',   g.hdop || '–', parseFloat(g.hdop) > 2 ? 'warn' : '');
+    set('base',   g.base || '–');
+    set('utc',    toClock(g.time) || '–');
+
+    // Stale corrections are the usual reason a fixed solution drops to float.
+    html('age', isFinite(age) ? age.toFixed(1) + '<u>s</u>' : '–');
+    $('age').className = 'v' + (!isFinite(age) ? '' : age > 10 ? ' bad' : age > 5 ? ' warn' : ' ok');
+  }
+
+  if (S.gst) {
+    html('sdLat', n(S.gst.sdLat, 3, 'm'));
+    html('sdLon', n(S.gst.sdLon, 3, 'm'));
+    html('sdAlt', n(S.gst.sdAlt, 3, 'm'));
+  }
+  if (S.gsa) { set('pdop', S.gsa.pdop || '–'); set('vdop', S.gsa.vdop || '–'); }
+
+  const kph = S.vtg ? S.vtg.kph : (S.rmc && isFinite(S.rmc.knots) ? S.rmc.knots * 1.852 : null);
+  html('speed', n(kph, 2, 'km/h'));
+  const crs = S.vtg && isFinite(S.vtg.course) ? S.vtg.course : (S.rmc ? S.rmc.course : null);
+  html('course', n(crs, 1, '°'));
+
+  if (S.zda) set('date', `${S.zda.year}-${S.zda.month}-${S.zda.day}`);
+  else if (S.rmc && S.rmc.date && S.rmc.date.length === 6) {
+    const d = S.rmc.date;
+    set('date', `20${d.slice(4, 6)}-${d.slice(2, 4)}-${d.slice(0, 2)}`);
+  }
+
+  if (!S.paused) {
+    const el = $('log');
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    el.innerHTML = S.lines.join('\n');
+    if (atBottom) el.scrollTop = el.scrollHeight;
+  }
+
+  renderStats();
+}
+
+function renderStats() {
+  $('statBytes').textContent = S.bytes.toLocaleString();
+  $('statSent').textContent  = S.sentences.toLocaleString();
+  $('statRate').textContent  = S.rate;
+  $('statBad').textContent   = S.bad;
+  $('statAge').textContent   = S.lastFixMs
+    ? ((performance.now() - S.lastFixMs) / 1000).toFixed(1) + ' s ago' : '–';
+}
+
+const escapeHtml = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+function pushLog(line, bad) {
+  const t = new Date().toTimeString().slice(0, 8);
+  const body = escapeHtml(line);
+  S.lines.push(bad
+    ? `<span class="bad">${t}  ${body}   ← checksum</span>`
+    : `${t}  ${body}`);
+  if (S.lines.length > 400) S.lines.splice(0, S.lines.length - 400);
+}
+
+// --------------------------------------------------------------------------
+// BLE
+// --------------------------------------------------------------------------
+function setStatus(text, cls) {
+  $('status').textContent = text;
+  $('dot').className = 'dot' + (cls ? ' ' + cls : '');
+}
+
+function onData(ev) {
+  const chunk = decoder.decode(ev.target.value, { stream: true });
+  S.bytes += ev.target.value.byteLength;
+  S.rateBytes += ev.target.value.byteLength;
+
+  partial += chunk;
+  let i;
+  while ((i = partial.indexOf('\n')) >= 0) {
+    const line = partial.slice(0, i).trim();
+    partial = partial.slice(i + 1);
+    if (line.startsWith('$') || line.startsWith('!')) handleSentence(line);
+  }
+  // A binary stream (RTCM/UBX slipped onto this port) never yields a newline;
+  // do not let the buffer grow without bound.
+  if (partial.length > 2048) partial = '';
+}
+
+async function connect() {
+  try {
+    setStatus('Requesting device…');
+    device = await navigator.bluetooth.requestDevice({
+      // Two filters means OR: the board is found by name even if a phone
+      // caches an advert without the scan response that carries the UUID.
+      filters: [{ namePrefix: 'ESP32-RTK' }, { services: [NUS_SERVICE] }],
+      optionalServices: [NUS_SERVICE],
+    });
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+
+    setStatus('Connecting…');
+    const server = await device.gatt.connect();
+    const svc = await server.getPrimaryService(NUS_SERVICE);
+    txChar = await svc.getCharacteristic(NUS_TX);
+    await txChar.startNotifications();
+    txChar.addEventListener('characteristicvaluechanged', onData);
+
+    S.lines.length = 0;
+    $('log').textContent = '';
+    setStatus(device.name || 'Connected', 'live');
+    $('btnConnect').textContent = 'Disconnect';
+  } catch (err) {
+    // A cancelled chooser is not an error worth shouting about.
+    if (err && err.name === 'NotFoundError') { setStatus('Not connected'); return; }
+    setStatus((err && err.message) || String(err), 'err');
+    console.error(err);
+  }
+}
+
+function onDisconnected() {
+  txChar = null;
+  partial = '';
+  setStatus('Disconnected');
+  $('btnConnect').textContent = 'Connect';
+}
+
+$('btnConnect').addEventListener('click', () => {
+  if (device && device.gatt.connected) device.gatt.disconnect();
+  else connect();
+});
+
+$('btnPause').addEventListener('click', e => {
+  S.paused = !S.paused;
+  e.target.textContent = S.paused ? 'Resume' : 'Pause';
+});
+
+$('btnClear').addEventListener('click', () => {
+  S.lines.length = 0;
+  $('log').textContent = '';
+});
+
+$('btnCopy').addEventListener('click', async e => {
+  if (!S.gga || S.gga.lat === null) return;
+  await navigator.clipboard.writeText(`${S.gga.lat.toFixed(8)}, ${S.gga.lon.toFixed(8)}`);
+  e.target.textContent = 'Copied';
+  setTimeout(() => { e.target.textContent = 'Copy'; }, 1200);
+});
+
+setInterval(render, 200);
+setInterval(() => { S.rate = S.rateBytes; S.rateBytes = 0; }, 1000);
+
+if (!navigator.bluetooth) {
+  $('unsupported').hidden = false;
+  $('btnConnect').disabled = true;
+  setStatus('Web Bluetooth unavailable', 'err');
+}
+</script>
+</body>
+</html>

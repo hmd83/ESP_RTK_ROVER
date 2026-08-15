@@ -1,0 +1,9 @@
+.pio/
+.vscode/
+!.vscode/extensions.json
+
+# Local tool state
+.claude/
+
+# Build artifacts published by the installer workflow
+install/firmware/*.bin
