@@ -292,6 +292,13 @@ Leave the antenna stack alone. The dome contains a multi-band patch over a machi
 ground plane, at the spacing its designer chose — this is a big part of the multipath
 rejection you are getting for 50 €.
 
+> ⚠️ **It is not a characterised antenna.** There is no ANTEX calibration for it, so the
+> offset between the electrical phase centre and any physical point you measure to is unknown
+> — systematic, mostly in height, and invisible in the receiver's own σ estimates. Read
+> [README → Antenna phase centre](README.md#antenna-phase-centre--the-uncharacterised-part)
+> before trusting a height. Measuring to a consistent point and orienting the dome the same
+> way every setup makes that offset constant, which is what makes it calibratable later.
+
 Practical siting matters more than any modification:
 
 - **Open sky.** Under a tree or against a wall you get FLOAT, not FIX.

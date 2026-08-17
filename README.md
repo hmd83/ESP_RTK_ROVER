@@ -91,6 +91,48 @@ Field-tested against a public NTRIP network with SW Maps on Android:
 > independent check against a control point. Absolute accuracy also depends on your
 > correction source, baseline length and antenna setup.
 
+### Antenna phase centre — the uncharacterised part
+
+**Read this before you trust a height.**
+
+A geodetic antenna ships with a calibration — an NGS or IGS [ANTEX](https://files.igs.org/pub/data/format/antex14.txt)
+table giving the phase-centre offset (PCO) and phase-centre variation (PCV) per frequency and
+per elevation angle. That is what lets software reduce a solution to the **Antenna Reference
+Point**: a physical spot on the hardware you can put a tape measure on.
+
+This dome has no such calibration. Nobody ever characterised it, because it was never sold as
+a survey instrument. So the offset between where the receiver *believes* the antenna is and
+where it physically sits is **unknown**.
+
+That error behaves in the least convenient way possible:
+
+- It is **systematic**, not random — it does not average out over a longer occupation.
+- It lands **mostly in height**. Horizontal is better behaved.
+- It **repeats**, exactly as confidently as the correct part of the solution. A fast, confident
+  RTK fix is precisely the kind that hides a constant offset.
+
+Until it is measured against a known control point, **treat heights as carrying an unknown
+constant bias**. The 9 mm above is the engine's opinion of its own solution, and the engine has
+no way to know about this.
+
+Two habits cost nothing and make the bias *constant* rather than varying between setups, which
+is the prerequisite for ever calibrating it out:
+
+1. **Always measure to the same physical point** on the mount, and record what you chose.
+2. **Mark a reference direction** on the dome and orient it the same way every time. Geodetic
+   practice points the antenna's north mark north; the principle is what matters, not the
+   direction — it makes azimuthal PCV error repeatable instead of random.
+
+Characterising the offset is a [roadmap](#roadmap) item: occupy a published control point on
+separate days — different satellite geometry, different multipath — and compare against the
+known coordinate. Repeatability alone proves precision, not accuracy; a constant offset repeats
+beautifully. Only the comparison against truth exposes it. The result will be published here,
+whichever way it falls.
+
+> Thanks to the GNSS practitioners on
+> [LinkedIn](https://www.linkedin.com/in/hussein-daj-787196202/) who pushed on this — naming
+> the limitation is more useful than the number was.
+
 ---
 
 ## Bill of materials
@@ -382,6 +424,7 @@ src/
   link_ble.cpp    BLE Nordic UART Service (NimBLE)
 web/
   rtk-monitor.html  offline Web Bluetooth diagnostic dashboard
+install/            prebuilt XIAO ESP32C6 image + ESP Web Tools installer page
 media/              teardown, wiring and field photos
 platformio.ini      three build environments
 ```
@@ -392,6 +435,9 @@ platformio.ini      three build environments
 
 ## Roadmap
 
+- [ ] **Characterise the antenna phase-centre offset** against a published control point, on
+      separate days, and publish the measured bias — see
+      [Antenna phase centre](#antenna-phase-centre--the-uncharacterised-part)
 - [ ] On-board NTRIP client over Wi-Fi (rover works without a phone)
 - [ ] Wi-Fi AP + captive-portal configuration (caster credentials, baud, device name)
 - [ ] Dashboard served from the ESP32 itself
