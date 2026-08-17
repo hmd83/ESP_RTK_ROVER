@@ -123,7 +123,9 @@ is the prerequisite for ever calibrating it out:
    practice points the antenna's north mark north; the principle is what matters, not the
    direction — it makes azimuthal PCV error repeatable instead of random.
 
-Characterising the offset is a [roadmap](#roadmap) item: occupy a published control point on
+Characterising the offset is a [roadmap](#roadmap) item, and the procedure is written up in
+**[docs/accuracy-test.md](docs/accuracy-test.md)** — candidate control points, method, error
+budget and what the result can honestly claim. In short: occupy a published control point on
 separate days — different satellite geometry, different multipath — and compare against the
 known coordinate. Repeatability alone proves precision, not accuracy; a constant offset repeats
 beautifully. Only the comparison against truth exposes it. The result will be published here,
@@ -436,8 +438,8 @@ platformio.ini      three build environments
 ## Roadmap
 
 - [ ] **Characterise the antenna phase-centre offset** against a published control point, on
-      separate days, and publish the measured bias — see
-      [Antenna phase centre](#antenna-phase-centre--the-uncharacterised-part)
+      separate days, and publish the measured bias — procedure, candidate points and error
+      budget in [docs/accuracy-test.md](docs/accuracy-test.md)
 - [ ] On-board NTRIP client over Wi-Fi (rover works without a phone)
 - [ ] Wi-Fi AP + captive-portal configuration (caster credentials, baud, device name)
 - [ ] Dashboard served from the ESP32 itself
